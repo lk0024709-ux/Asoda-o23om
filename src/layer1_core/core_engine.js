@@ -10,6 +10,7 @@ import { UnrealBloomPass } from "three/addons/postprocessing/UnrealBloomPass.js"
 import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
 import { OutputPass } from "three/addons/postprocessing/OutputPass.js";
 import { FXAAShader } from "three/addons/shaders/FXAAShader.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { createDustParticleSystem } from "./shaders.js";
 
 export function detectDeviceTier() {
@@ -79,6 +80,14 @@ export class CoreEngine {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type =
       this.tier === "low" ? THREE.BasicShadowMap : THREE.PCFSoftShadowMap;
+
+    // Image-Based Lighting (IBL) via PMREM RoomEnvironment for metallic gold, chrome, marble & glazed tile PBR reflections
+    try {
+      const pmrem = new THREE.PMREMGenerator(this.renderer);
+      this.scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+      this.scene.environmentIntensity = 0.55;
+      pmrem.dispose();
+    } catch (_) {}
   }
 
   _initPostProcessing() {

@@ -18,6 +18,7 @@ import {
   buildSharedDesiProps
 } from "./landmark_builders.js";
 import { createIndianWaterMaterial, createHeatHazeMaterial } from "../layer1_core/shaders.js";
+import { createOrganicHill } from "../layer1_core/sculpted_geometry.js";
 
 export class WorldStreamer {
   constructor(scene, assets) {
@@ -138,18 +139,18 @@ export class WorldStreamer {
 
   _buildHorizonRing(hub) {
     const hillMat = this.assets.colorMat(
-      hub.region === "South India" ? 0x627358 : 0x9b7f5e,
-      { roughness: 0.95 }
+      hub.region === "South India" ? 0x5c7254 : 0x9c7f5d,
+      { roughness: 0.94 }
     );
     const count = 18;
-    const hillInst = new THREE.InstancedMesh(new THREE.ConeGeometry(28, 22, 6), hillMat, count);
+    const hillInst = new THREE.InstancedMesh(createOrganicHill(30, 22, 5), hillMat, count);
     const dummy = new THREE.Object3D();
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2;
-      const dist = 108 + (i % 3) * 12;
-      const hScale = 0.7 + ((i * 7) % 5) * 0.25;
-      dummy.position.set(Math.cos(a) * dist, 9 * hScale, Math.sin(a) * dist);
-      dummy.scale.set(1.2, hScale, 1.2);
+      const dist = 108 + (i % 3) * 14;
+      const hScale = 0.72 + ((i * 7) % 5) * 0.24;
+      dummy.position.set(Math.cos(a) * dist, 0, Math.sin(a) * dist);
+      dummy.scale.set(1.25, hScale, 1.25);
       dummy.rotation.y = a;
       dummy.updateMatrix();
       hillInst.setMatrixAt(i, dummy.matrix);

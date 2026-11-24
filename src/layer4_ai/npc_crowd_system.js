@@ -1,347 +1,449 @@
 /* ============================================================================
-   Layer 4 — NPC & AI System:
-   - 24-min = 24-hour Day/Night Routine Scheduler
-   - Articulated Named Regional NPCs (Priests, Boatmen, Vendors, Conservators)
-   - THREE.InstancedMesh Strolling Bazaar Crowds (low draw-call overhead)
-   - Authentic Indian Ambient Wildlife: Holy Cows, Temple Monkeys & Street Dogs
+   Layer 4 — NPC, Crowd AI & Wildlife (Strict Non-Voxel Sculpted Models):
+   - 24 real minutes = 24 in-game hours dynamic Indian day/night routine
+   - Named Story NPCs built from sculpted anatomical torsos, heads, turbans
+     & flowing saree/kurta drapes (ZERO BoxGeometry!)
+   - High-density THREE.InstancedMesh sculpted crowd silhouettes
+   - Organic Sculpted Indian Wildlife (Zebu Cows with curved horns, Hanuman
+     Monkeys with curved tails, Indian Pariah Street Dogs)
    ============================================================================ */
 
 import * as THREE from "three";
+import {
+  createSculptedTorso,
+  createSculptedHead,
+  createCurvedTube
+} from "../layer1_core/sculpted_geometry.js";
 
-const SARI_COLORS = [0xe11d48, 0xf59e0b, 0x0ea5e9, 0x10b981, 0x9333ea, 0xe85d04, 0xd946ef];
+export const FESTIVALS = [
+  { id: "normal", label: "Everyday Living India", accent: 0xf59e0b },
+  { id: "diwali", label: "Diwali — Festival of Diyas", accent: 0xfbbf24 },
+  { id: "gangaur", label: "Gangaur Procession (Rajasthan)", accent: 0xec4899 },
+  { id: "aarti", label: "Maha Ganga Aarti (Varanasi)", accent: 0xf97316 },
+  { id: "light_sound", label: "Khajuraho Light & Sound", accent: 0x8b5cf6 },
+  { id: "tansen", label: "Tansen Classical Music Festival", accent: 0x06b6d4 },
+  { id: "mysore_lights", label: "Mysore Palace 100,000 Bulb Glow", accent: 0xfde047 }
+];
 
 export class NPCCrowdSystem {
-  constructor(scene, assets, worldStreamer) {
+  constructor(scene, assets) {
     this.scene = scene;
     this.assets = assets;
-    this.world = worldStreamer;
 
-    // 24 real minutes = 24 in-game hours (1 hour per 60 real seconds)
-    this.hourOfDay = 9.5; // Starts in crisp Golden Morning (9:30 AM)
-    this.group = null;
-    this.namedNPCs = [];
-    this.animals = [];
+    // 24 real minutes = 24 in-game hours => 1 game hour per real minute
+    this.timeHours = 10.5;
+    this.timeScale = 1.0;
+    this.activeFestival = "normal";
+
+    this.root = new THREE.Group();
+    this.scene.add(this.root);
+
+    this.namedNpcs = [];
     this.crowdInst = null;
-    this.crowdAgents = [];
-    this._dummy = new THREE.Object3D();
+    this.crowdHeadInst = null;
+    this.crowdData = [];
+    this.wildlife = [];
+    this.currentHub = null;
   }
 
   getRoutinePhase() {
-    const h = this.hourOfDay;
-    if (h >= 5 && h < 9) return "MORNING AARTI";
-    if (h >= 9 && h < 17) return "BAZAAR HOURS";
-    if (h >= 17 && h < 20.5) return "GOLDEN FESTIVAL";
-    return "NIGHT ILLUMINATION";
+    const h = this.timeHours;
+    if (h >= 5.5 && h < 8.5) return { id: "dawn", label: "Morning Mandir Aarti & Chai Rush" };
+    if (h >= 8.5 && h < 16.5) return { id: "day", label: "Bustling Bazaars & Heritage Walkers" };
+    if (h >= 16.5 && h < 19.8) return { id: "dusk", label: "Golden Sunset, Street Chaat & Ghat Aarti" };
+    return { id: "night", label: "Starlit Haveli Lamps & Night Illumination" };
   }
 
   formatClock() {
-    const h = Math.floor(this.hourOfDay) % 24;
-    const m = Math.floor((this.hourOfDay - Math.floor(this.hourOfDay)) * 60);
-    const ampm = h >= 12 ? "PM" : "AM";
-    const h12 = h % 12 === 0 ? 12 : h % 12;
-    return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+    const totalMins = Math.floor(this.timeHours * 60);
+    const h24 = Math.floor(totalMins / 60) % 24;
+    const m = totalMins % 60;
+    const suffix = h24 >= 12 ? "PM" : "AM";
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
   }
 
-  cycleTimePreset() {
-    const presets = [6.5, 13.0, 17.8, 20.8]; // Dawn, Noon, Golden Hour Sunset, Festival Night
-    let next = presets[0];
-    for (const p of presets) {
-      if (this.hourOfDay < p - 0.3) {
-        next = p;
-        break;
-      }
+  cycleTimeOfDay() {
+    const stops = [6.2, 11.0, 17.6, 21.0];
+    const next = stops.find((s) => s > this.timeHours + 0.5) ?? stops[0];
+    this.timeHours = next;
+    return this.getRoutinePhase();
+  }
+
+  cycleFestival() {
+    const idx = FESTIVALS.findIndex((f) => f.id === this.activeFestival);
+    const next = FESTIVALS[(idx + 1) % FESTIVALS.length];
+    this.activeFestival = next.id;
+    return next;
+  }
+
+  clearHub() {
+    while (this.root.children.length > 0) {
+      this.root.remove(this.root.children[0]);
     }
-    this.hourOfDay = next;
-    return this.formatClock();
+    this.namedNpcs = [];
+    this.crowdInst = null;
+    this.crowdHeadInst = null;
+    this.crowdData = [];
+    this.wildlife = [];
   }
 
-  populateHub(hub) {
-    this.clear();
-    this.group = new THREE.Group();
-    this.group.name = "npc_crowd_" + hub.id;
-    this.namedNPCs = [];
-    this.animals = [];
-    this.crowdAgents = [];
+  populateHub(hub, crowdBudget = 55) {
+    this.clearHub();
+    this.currentHub = hub;
 
-    // 1. Named Story & Local NPCs
-    (hub.npcs || []).forEach((npc, idx) => {
-      const mesh = this._buildNamedNPC(npc, idx);
-      mesh.position.set(npc.x, 0, npc.z);
-      this.group.add(mesh);
-      this.namedNPCs.push({ data: npc, mesh, basePos: new THREE.Vector3(npc.x, 0, npc.z) });
-    });
-
-    // 2. InstancedMesh Bazaar Crowd (24 strolling citizens in 2 draw calls!)
-    const crowdCount = 24;
-    const bodyInst = new THREE.InstancedMesh(
-      new THREE.CylinderGeometry(0.28, 0.36, 1.35, 8),
-      this.assets.colorMat(0xffffff, { roughness: 0.8 }),
-      crowdCount
-    );
-    const headInst = new THREE.InstancedMesh(
-      new THREE.SphereGeometry(0.24, 8, 8),
-      this.assets.colorMat(0xc4864b, { roughness: 0.72 }),
-      crowdCount
-    );
-    const color = new THREE.Color();
-
-    for (let i = 0; i < crowdCount; i++) {
-      let cx = (Math.random() - 0.5) * 62;
-      let cz = (Math.random() - 0.5) * 58;
-      // Keep out of water
-      if (this.world.isPointInWater(cx, cz)) {
-        cx = hub.spawn.x + (Math.random() - 0.5) * 14;
-        cz = hub.spawn.z + (Math.random() - 0.5) * 14;
-      }
-      color.setHex(SARI_COLORS[i % SARI_COLORS.length]);
-      bodyInst.setColorAt(i, color);
-      this.crowdAgents.push({
-        x: cx,
-        z: cz,
-        yaw: Math.random() * Math.PI * 2,
-        speed: 1.4 + Math.random() * 1.4,
-        turnTimer: 2 + Math.random() * 4,
-        phase: Math.random() * 6
-      });
+    for (const def of hub.npcs) {
+      const npc = this._buildNamedNPC(def);
+      this.root.add(npc.mesh);
+      this.namedNpcs.push(npc);
     }
-    if (bodyInst.instanceColor) bodyInst.instanceColor.needsUpdate = true;
-    this.group.add(bodyInst, headInst);
-    this.crowdInst = { bodyInst, headInst };
 
-    // 3. Authentic Desi Ambient Wildlife (2 Holy Cows, 2 Playful Monkeys, 2 Street Dogs)
-    this._spawnAmbientAnimals(hub);
-
-    this.scene.add(this.group);
+    this._buildInstancedCrowd(hub, crowdBudget);
+    this._buildIndianWildlife(hub);
   }
 
-  _buildNamedNPC(npc, idx) {
+  // --------------------------------------------------------------------------
+  // Sculpted Anatomical Story NPC (ZERO BoxGeometry!)
+  // --------------------------------------------------------------------------
+  _buildNamedNPC(def) {
     const g = new THREE.Group();
-    const outfitHex =
-      npc.role === "priest" ? 0xf97316 :
-      npc.role === "ally" ? 0x0d9488 :
-      npc.role === "hearing" ? 0x1e3a8a :
-      SARI_COLORS[idx % SARI_COLORS.length];
+    const clothMat = this.assets.colorMat(def.color || 0xd97706, { roughness: 0.78 });
+    const skinMat = this.assets.colorMat(0xc5854b, { roughness: 0.66 });
+    const wrapMat = this.assets.colorMat(0xfef3c7, { roughness: 0.82 });
+    const legMat = this.assets.colorMat(0x2d241e, { roughness: 0.84 });
+    const isFemale = /Meera|Ananya|Lakshmi|Bahu|Devi/i.test(def.name);
 
-    const body = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.32, 0.42, 1.38, 10),
-      this.assets.colorMat(outfitHex, { roughness: 0.8 })
-    );
-    body.position.y = 0.72;
+    // Legs or Flowing Pleated Saree Skirt
+    if (isFemale) {
+      const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.34, 0.94, 18), clothMat);
+      skirt.position.y = 0.48;
+      skirt.castShadow = true;
+      g.add(skirt);
+    } else {
+      const legGeo = new THREE.CapsuleGeometry(0.095, 0.54, 8, 12);
+      for (const lx of [-0.14, 0.14]) {
+        const leg = new THREE.Mesh(legGeo, legMat);
+        leg.position.set(lx, 0.44, 0);
+        leg.castShadow = true;
+        g.add(leg);
+      }
+    }
+
+    // Sculpted Contoured Kurta / Blouse Torso + Shawl/Dupatta Wrap
+    const body = new THREE.Mesh(createSculptedTorso(0.84, 0.25, 0.2, !isFemale), clothMat);
+    body.position.y = 0.84;
     body.castShadow = true;
     g.add(body);
 
-    const head = new THREE.Mesh(
-      new THREE.SphereGeometry(0.26, 10, 10),
-      this.assets.colorMat(0xc4864b, { roughness: 0.72 })
-    );
-    head.position.y = 1.68;
+    const shawl = new THREE.Mesh(new THREE.TorusGeometry(0.24, 0.06, 10, 18), wrapMat);
+    shawl.position.set(0, 1.54, 0);
+    shawl.rotation.x = Math.PI / 2 + 0.18;
+    g.add(shawl);
+
+    // Sculpted Capsule Arms & Rounded Hands
+    const armGeo = new THREE.CapsuleGeometry(0.075, 0.44, 8, 12);
+    for (const ax of [-0.32, 0.32]) {
+      const arm = new THREE.Mesh(armGeo, clothMat);
+      arm.position.set(ax, 1.24, 0);
+      arm.rotation.z = ax < 0 ? 0.12 : -0.12;
+      arm.castShadow = true;
+      g.add(arm);
+
+      const hand = new THREE.Mesh(new THREE.SphereGeometry(0.07, 12, 10), skinMat);
+      hand.position.set(ax * 1.12, 0.94, 0);
+      g.add(hand);
+    }
+
+    // Sculpted Neck & Anatomical Oval Head
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.095, 0.15, 12), skinMat);
+    neck.position.y = 1.72;
+    g.add(neck);
+
+    const head = new THREE.Mesh(createSculptedHead(0.195), skinMat);
+    head.position.y = 1.94;
     head.castShadow = true;
     g.add(head);
 
-    // Traditional Turban / Pagri or Tilak accent
-    const pagri = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.28, 0.27, 0.18, 10),
-      this.assets.colorMat(npc.role === "priest" ? 0xfef08a : 0xe11d48)
-    );
-    pagri.position.y = 1.88;
-    g.add(pagri);
+    // Regional Headwear: Draped Rajasthani Pagdi Turban OR Traditional Hair Bun with Marigold Gajra
+    if (!isFemale) {
+      const pagdiBase = new THREE.Mesh(new THREE.TorusGeometry(0.185, 0.075, 10, 20), clothMat);
+      pagdiBase.position.y = 2.08;
+      pagdiBase.rotation.x = Math.PI / 2;
+      const pagdiCrown = new THREE.Mesh(new THREE.SphereGeometry(0.18, 16, 10), clothMat);
+      pagdiCrown.scale.set(1, 0.65, 1);
+      pagdiCrown.position.y = 2.12;
+      g.add(pagdiBase, pagdiCrown);
+    } else {
+      const hair = new THREE.Mesh(
+        new THREE.SphereGeometry(0.205, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62),
+        this.assets.colorMat(0x18181b, { roughness: 0.72 })
+      );
+      hair.position.set(0, 1.98, -0.02);
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), this.assets.colorMat(0x18181b, { roughness: 0.72 }));
+      bun.position.set(0, 1.9, -0.22);
+      const gajra = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 8, 14), this.assets.get("marigold"));
+      gajra.position.set(0, 1.9, -0.2);
+      g.add(hair, bun, gajra);
+    }
 
-    // Subtle glowing gold dialogue ring overhead
-    const halo = new THREE.Mesh(
-      new THREE.TorusGeometry(0.32, 0.045, 6, 16),
+    // Subtle floating golden conversation halo
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.24, 0.028, 10, 24),
       this.assets.get("diyaGlow")
     );
-    halo.rotation.x = Math.PI / 2;
-    halo.position.y = 2.38;
-    halo.name = "npcHalo";
-    g.add(halo);
+    ring.position.y = 2.58;
+    ring.rotation.x = Math.PI / 2;
+    g.add(ring);
 
-    return g;
-  }
-
-  _spawnAmbientAnimals(hub) {
-    const spawnNear = (ox, oz) => {
-      let x = hub.spawn.x + ox;
-      let z = hub.spawn.z + oz;
-      if (this.world.isPointInWater(x, z)) {
-        x = hub.spawn.x + 6;
-        z = hub.spawn.z + 6;
-      }
-      return { x, z };
+    g.position.set(def.x, 0, def.z);
+    return {
+      ...def,
+      mesh: g,
+      ring,
+      baseX: def.x,
+      baseZ: def.z,
+      phase: Math.random() * Math.PI * 2
     };
+  }
 
-    // 2 Holy Indian Cows (white humped zebu silhouette!)
-    [[-10, -4], [10, 8]].forEach(([ox, oz]) => {
-      const p = spawnNear(ox, oz);
+  // --------------------------------------------------------------------------
+  // High-Density Sculpted Instanced Crowds (Lathe Torso + Oval Head)
+  // --------------------------------------------------------------------------
+  _buildInstancedCrowd(hub, count) {
+    const bodyGeo = createSculptedTorso(1.38, 0.29, 0.23, false);
+    const headGeo = createSculptedHead(0.185);
+    const bodyMat = new THREE.MeshStandardMaterial({ roughness: 0.8, metalness: 0.03 });
+    const headMat = this.assets.colorMat(0xc98b55, { roughness: 0.68 });
+
+    this.crowdInst = new THREE.InstancedMesh(bodyGeo, bodyMat, count);
+    this.crowdHeadInst = new THREE.InstancedMesh(headGeo, headMat, count);
+    this.crowdInst.castShadow = true;
+
+    const sariPalette = [
+      0xe11d48, 0xd97706, 0x059669, 0x2563eb, 0x7c3aed,
+      0xca8a04, 0xdb2777, 0x0f766e, 0xf8fafc, 0xb45309
+    ];
+
+    const col = new THREE.Color();
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + (i % 5) * 0.2;
+      const rad = 12 + ((i * 11) % 34);
+      let x = Math.cos(a) * rad;
+      let z = Math.sin(a) * rad;
+      if (hub.waterArea) {
+        const wa = hub.waterArea;
+        if (Math.abs(x - wa.x) < wa.w * 0.55 && Math.abs(z - wa.z) < wa.d * 0.55) {
+          x = -Math.abs(x) - 10;
+        }
+      }
+
+      col.setHex(sariPalette[i % sariPalette.length]);
+      this.crowdInst.setColorAt(i, col);
+
+      this.crowdData.push({
+        x,
+        z,
+        homeX: x,
+        homeZ: z,
+        dir: Math.random() * Math.PI * 2,
+        speed: 1.0 + (i % 4) * 0.35,
+        phase: Math.random() * Math.PI * 2,
+        isBazaar: i % 2 === 0
+      });
+    }
+
+    if (this.crowdInst.instanceColor) this.crowdInst.instanceColor.needsUpdate = true;
+    this.root.add(this.crowdInst, this.crowdHeadInst);
+  }
+
+  // --------------------------------------------------------------------------
+  // Sculpted Organic Indian Wildlife (Cows, Monkeys, Street Dogs — ZERO Boxes!)
+  // --------------------------------------------------------------------------
+  _buildIndianWildlife(hub) {
+    const cowMat = this.assets.colorMat(0xf5f5f4, { roughness: 0.85 });
+    const brownCowMat = this.assets.colorMat(0x9a6b48, { roughness: 0.85 });
+    const hornMat = this.assets.colorMat(0x3f2c1f, { roughness: 0.65 });
+    const dogMat = this.assets.colorMat(0xb87a42, { roughness: 0.84 });
+    const monkeyMat = this.assets.colorMat(0x7c5838, { roughness: 0.82 });
+
+    // 1. Sculpted Indian Zebu Cows (Capsule torso + dorsal hump + curved horns & tail)
+    for (let i = 0; i < 4; i++) {
       const cow = new THREE.Group();
-      const white = this.assets.get("whitewash");
-      const dark = this.assets.get("teakWood");
-      const torso = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.9, 1.9), white);
-      torso.position.y = 1.1;
+      const mat = i % 2 === 0 ? cowMat : brownCowMat;
+      const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.4, 1.08, 10, 16), mat);
+      torso.rotation.x = Math.PI / 2;
+      torso.position.y = 0.96;
       torso.castShadow = true;
-      cow.add(torso);
-      const hump = new THREE.Mesh(new THREE.SphereGeometry(0.36, 8, 8), white);
-      hump.position.set(0, 1.62, 0.42);
-      cow.add(hump);
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.45, 0.62), white);
-      head.position.set(0, 1.35, 1.18);
-      cow.add(head);
-      for (const lx of [-0.34, 0.34]) {
-        for (const lz of [-0.68, 0.68]) {
-          const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.72, 0.16), dark);
-          leg.position.set(lx, 0.36, lz);
-          cow.add(leg);
-        }
+      const hump = new THREE.Mesh(new THREE.SphereGeometry(0.28, 14, 12), mat);
+      hump.scale.set(0.8, 1.05, 1.1);
+      hump.position.set(0, 1.32, 0.34);
+      const neck = new THREE.Mesh(new THREE.CapsuleGeometry(0.2, 0.42, 8, 12), mat);
+      neck.position.set(0, 1.14, 0.82);
+      neck.rotation.x = 0.62;
+      const head = new THREE.Mesh(new THREE.CapsuleGeometry(0.18, 0.32, 8, 12), mat);
+      head.rotation.x = Math.PI / 2 + 0.35;
+      head.position.set(0, 1.24, 1.14);
+
+      const hornL = new THREE.Mesh(
+        createCurvedTube([[-0.12, 1.38, 1.04], [-0.26, 1.54, 1.0], [-0.22, 1.72, 1.06]], 0.035, 10, 8),
+        hornMat
+      );
+      const hornR = new THREE.Mesh(
+        createCurvedTube([[0.12, 1.38, 1.04], [0.26, 1.54, 1.0], [0.22, 1.72, 1.06]], 0.035, 10, 8),
+        hornMat
+      );
+      const tail = new THREE.Mesh(
+        createCurvedTube([[0, 1.04, -0.78], [0, 0.72, -0.92], [0.04, 0.36, -0.88]], 0.03, 10, 8),
+        mat
+      );
+      cow.add(torso, hump, neck, head, hornL, hornR, tail);
+
+      for (const [lx, lz] of [[-0.24, 0.48], [0.24, 0.48], [-0.24, -0.48], [0.24, -0.48]]) {
+        const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.072, 0.62, 6, 10), mat);
+        leg.position.set(lx, 0.42, lz);
+        cow.add(leg);
       }
-      cow.position.set(p.x, 0, p.z);
-      this.group.add(cow);
-      this.animals.push({ type: "cow", mesh: cow, yaw: Math.random() * 6, speed: 0.9, timer: 3 });
-    });
 
-    // 2 Playful Temple Monkeys (hopping near bazaar / temple!)
-    [[-6, -12], [12, -10]].forEach(([ox, oz]) => {
-      const p = spawnNear(ox, oz);
-      const monkey = new THREE.Group();
-      const fur = this.assets.colorMat(0x8c6239, { roughness: 0.9 });
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.36, 0.52, 0.32), fur);
-      body.position.y = 0.46;
-      monkey.add(body);
-      const head = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), fur);
-      head.position.set(0, 0.85, 0.08);
-      monkey.add(head);
-      const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.7, 6), fur);
-      tail.position.set(0, 0.6, -0.32);
-      tail.rotation.x = -0.6;
-      monkey.add(tail);
-      monkey.position.set(p.x, 0, p.z);
-      this.group.add(monkey);
-      this.animals.push({ type: "monkey", mesh: monkey, yaw: Math.random() * 6, speed: 2.2, timer: 2 });
-    });
+      const cx = -22 + i * 15;
+      const cz = 14 + (i % 2) * 14;
+      cow.position.set(cx, 0, cz);
+      this.root.add(cow);
+      this.wildlife.push({ mesh: cow, kind: "cow", baseX: cx, baseZ: cz, phase: i * 1.4 });
+    }
 
-    // 2 Friendly Street Dogs
-    [[6, 4], [-8, 12]].forEach(([ox, oz]) => {
-      const p = spawnNear(ox, oz);
+    // 2. Sculpted Hanuman/Rhesus Monkeys (Organic curved tail & rounded silhouette)
+    const monkeyCount = hub.id === "jaipur" || hub.id === "varanasi" ? 6 : 3;
+    for (let i = 0; i < monkeyCount; i++) {
+      const m = new THREE.Group();
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.34, 8, 12), monkeyMat);
+      body.position.y = 0.44;
+      const head = new THREE.Mesh(createSculptedHead(0.145), monkeyMat);
+      head.position.set(0, 0.78, 0.05);
+      const tail = new THREE.Mesh(
+        createCurvedTube([[0, 0.32, -0.14], [0, 0.56, -0.42], [0.06, 0.9, -0.34], [0.04, 1.02, -0.22]], 0.032, 14, 8),
+        monkeyMat
+      );
+      m.add(body, head, tail);
+      const mx = (i - monkeyCount / 2) * 11;
+      const mz = -16 + (i % 2) * 8;
+      m.position.set(mx, 0, mz);
+      this.root.add(m);
+      this.wildlife.push({ mesh: m, kind: "monkey", baseX: mx, baseZ: mz, phase: i * 2.1 });
+    }
+
+    // 3. Sculpted Indian Pariah Street Dogs
+    for (let i = 0; i < 3; i++) {
       const dog = new THREE.Group();
-      const coat = this.assets.colorMat(0xc58c52, { roughness: 0.88 });
-      const body = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.36, 0.82), coat);
+      const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.16, 0.54, 8, 12), dogMat);
+      body.rotation.x = Math.PI / 2;
       body.position.y = 0.46;
-      dog.add(body);
-      const head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.26, 0.34), coat);
-      head.position.set(0, 0.66, 0.48);
-      dog.add(head);
-      dog.position.set(p.x, 0, p.z);
-      this.group.add(dog);
-      this.animals.push({ type: "dog", mesh: dog, yaw: Math.random() * 6, speed: 1.8, timer: 2.5 });
-    });
-  }
-
-  update(dt, elapsedSec, playerPos) {
-    // 24 real minutes = 24 game hours => 1/60 hour per second
-    this.hourOfDay = (this.hourOfDay + dt / 60) % 24;
-
-    // 1. Named NPCs gently turn toward Aarav when nearby + bobbing gold halo
-    for (const npc of this.namedNPCs) {
-      const dist = Math.hypot(playerPos.x - npc.mesh.position.x, playerPos.z - npc.mesh.position.z);
-      if (dist < 10) {
-        npc.mesh.rotation.y = Math.atan2(
-          playerPos.x - npc.mesh.position.x,
-          playerPos.z - npc.mesh.position.z
-        );
+      const head = new THREE.Mesh(createSculptedHead(0.135), dogMat);
+      head.position.set(0, 0.64, 0.44);
+      const snout = new THREE.Mesh(new THREE.CapsuleGeometry(0.06, 0.14, 6, 10), dogMat);
+      snout.rotation.x = Math.PI / 2;
+      snout.position.set(0, 0.6, 0.58);
+      const tail = new THREE.Mesh(
+        createCurvedTube([[0, 0.52, -0.34], [0, 0.74, -0.48], [0, 0.86, -0.36]], 0.028, 10, 8),
+        dogMat
+      );
+      dog.add(body, head, snout, tail);
+      for (const [lx, lz] of [[-0.1, 0.22], [0.1, 0.22], [-0.1, -0.22], [0.1, -0.22]]) {
+        const leg = new THREE.Mesh(new THREE.CapsuleGeometry(0.042, 0.32, 6, 8), dogMat);
+        leg.position.set(lx, 0.22, lz);
+        dog.add(leg);
       }
-      const halo = npc.mesh.getObjectByName("npcHalo");
-      if (halo) {
-        halo.position.y = 2.38 + Math.sin(elapsedSec * 3.5) * 0.1;
-        halo.rotation.z += dt * 1.4;
-      }
-    }
-
-    // 2. Instanced Bazaar Crowd strolling (slows gently late at night)
-    if (this.crowdInst) {
-      const nightSlow = this.hourOfDay > 22 || this.hourOfDay < 5 ? 0.35 : 1.0;
-      const { bodyInst, headInst } = this.crowdInst;
-      for (let i = 0; i < this.crowdAgents.length; i++) {
-        const a = this.crowdAgents[i];
-        a.turnTimer -= dt;
-        if (a.turnTimer <= 0) {
-          a.turnTimer = 2.2 + Math.random() * 4.0;
-          a.yaw += (Math.random() - 0.5) * 2.1;
-        }
-        const nx = a.x + Math.sin(a.yaw) * a.speed * nightSlow * dt;
-        const nz = a.z + Math.cos(a.yaw) * a.speed * nightSlow * dt;
-        if (
-          Math.abs(nx) < 42 &&
-          Math.abs(nz) < 42 &&
-          !this.world.isPointInWater(nx, nz) &&
-          !this.world.hitsBuilding(nx, nz, 0.7)
-        ) {
-          a.x = nx;
-          a.z = nz;
-        } else {
-          a.yaw += Math.PI * 0.75;
-        }
-        const bob = Math.abs(Math.sin(elapsedSec * 5 + a.phase)) * 0.08 * nightSlow;
-        this._dummy.position.set(a.x, 0.7 + bob, a.z);
-        this._dummy.rotation.set(0, a.yaw, 0);
-        this._dummy.updateMatrix();
-        bodyInst.setMatrixAt(i, this._dummy.matrix);
-
-        this._dummy.position.set(a.x, 1.62 + bob, a.z);
-        this._dummy.updateMatrix();
-        headInst.setMatrixAt(i, this._dummy.matrix);
-      }
-      bodyInst.instanceMatrix.needsUpdate = true;
-      headInst.instanceMatrix.needsUpdate = true;
-    }
-
-    // 3. Ambient Animals (Cows amble, Monkeys hop, Dogs trot)
-    for (const an of this.animals) {
-      an.timer -= dt;
-      if (an.timer <= 0) {
-        an.timer = 2.5 + Math.random() * 4;
-        an.yaw += (Math.random() - 0.5) * 2.4;
-      }
-      const nx = an.mesh.position.x + Math.sin(an.yaw) * an.speed * dt;
-      const nz = an.mesh.position.z + Math.cos(an.yaw) * an.speed * dt;
-      if (
-        Math.abs(nx) < 44 &&
-        Math.abs(nz) < 44 &&
-        !this.world.isPointInWater(nx, nz) &&
-        !this.world.hitsBuilding(nx, nz, 0.9)
-      ) {
-        an.mesh.position.x = nx;
-        an.mesh.position.z = nz;
-      } else {
-        an.yaw += Math.PI * 0.8;
-      }
-      an.mesh.rotation.y = an.yaw;
-      if (an.type === "monkey") {
-        an.mesh.position.y = Math.abs(Math.sin(elapsedSec * 6.5)) * 0.45;
-      }
+      const dx = 12 - i * 12;
+      const dz = 22 + i * 3;
+      dog.position.set(dx, 0, dz);
+      this.root.add(dog);
+      this.wildlife.push({ mesh: dog, kind: "dog", baseX: dx, baseZ: dz, phase: i * 1.9 });
     }
   }
 
-  findNearestNPC(x, z, maxDist = 5.5) {
+  getNearestNPC(px, pz, maxDist = 4.6) {
     let best = null;
     let bestD = maxDist;
-    for (const npc of this.namedNPCs) {
-      const d = Math.hypot(x - npc.mesh.position.x, z - npc.mesh.position.z);
+    for (const n of this.namedNpcs) {
+      const d = Math.hypot(px - n.mesh.position.x, pz - n.mesh.position.z);
       if (d < bestD) {
         bestD = d;
-        best = npc;
+        best = n;
       }
     }
     return best;
   }
 
-  clear() {
-    if (!this.group) return;
-    this.scene.remove(this.group);
-    this.group.traverse((o) => {
-      if (o.geometry) o.geometry.dispose();
-    });
-    this.group = null;
-    this.namedNPCs = [];
-    this.animals = [];
-    this.crowdInst = null;
+  update(dt, elapsedSec, playerPos, worldStreamer) {
+    this.timeHours = (this.timeHours + (dt / 60) * this.timeScale) % 24;
+
+    const isNight = this.timeHours < 5.6 || this.timeHours > 20.0;
+    const isDawn = this.timeHours >= 5.5 && this.timeHours < 8.5;
+
+    for (const n of this.namedNpcs) {
+      n.ring.rotation.z = elapsedSec * 1.8 + n.phase;
+      n.ring.position.y = 2.58 + Math.sin(elapsedSec * 2.6 + n.phase) * 0.08;
+      const dx = playerPos.x - n.mesh.position.x;
+      const dz = playerPos.z - n.mesh.position.z;
+      if (Math.hypot(dx, dz) < 7.5) {
+        n.mesh.rotation.y = Math.atan2(dx, dz);
+      } else {
+        n.mesh.rotation.y = Math.sin(elapsedSec * 0.4 + n.phase) * 0.35;
+      }
+    }
+
+    if (this.crowdInst && this.crowdHeadInst) {
+      const dummyBody = new THREE.Object3D();
+      const dummyHead = new THREE.Object3D();
+      const speedMult = isNight ? 0.35 : isDawn ? 0.72 : 1.0;
+
+      for (let i = 0; i < this.crowdData.length; i++) {
+        const c = this.crowdData[i];
+        const nx = c.x + Math.cos(c.dir) * c.speed * speedMult * dt;
+        const nz = c.z + Math.sin(c.dir) * c.speed * speedMult * dt;
+        const outOfBounds = Math.hypot(nx, nz) > 54;
+        const blocked =
+          outOfBounds ||
+          worldStreamer.isPointInWater(nx, nz) ||
+          worldStreamer.hitsBuilding(nx, nz, 1.0);
+
+        if (blocked) {
+          c.dir += Math.PI * 0.65 + (i % 3) * 0.3;
+        } else {
+          c.x = nx;
+          c.z = nz;
+        }
+
+        const bob = Math.abs(Math.sin(elapsedSec * 4.5 + c.phase)) * 0.08 * speedMult;
+        dummyBody.position.set(c.x, 0.25 + bob, c.z);
+        dummyBody.rotation.set(0, -c.dir + Math.PI / 2, 0);
+        dummyBody.updateMatrix();
+        this.crowdInst.setMatrixAt(i, dummyBody.matrix);
+
+        dummyHead.position.set(c.x, 1.82 + bob, c.z);
+        dummyHead.rotation.set(0, -c.dir + Math.PI / 2, 0);
+        dummyHead.updateMatrix();
+        this.crowdHeadInst.setMatrixAt(i, dummyHead.matrix);
+      }
+      this.crowdInst.instanceMatrix.needsUpdate = true;
+      this.crowdHeadInst.instanceMatrix.needsUpdate = true;
+    }
+
+    for (const w of this.wildlife) {
+      if (w.kind === "cow") {
+        const t = elapsedSec * 0.25 + w.phase;
+        w.mesh.position.x = w.baseX + Math.sin(t) * 2.4;
+        w.mesh.position.z = w.baseZ + Math.cos(t * 0.8) * 1.8;
+        w.mesh.rotation.y = Math.atan2(Math.cos(t) * 2.4, -Math.sin(t * 0.8) * 1.8);
+      } else if (w.kind === "monkey") {
+        const hop = Math.max(0, Math.sin(elapsedSec * 3.8 + w.phase)) * 0.65;
+        w.mesh.position.y = hop;
+        w.mesh.rotation.y = elapsedSec * 0.8 + w.phase;
+      } else {
+        const t = elapsedSec * 0.65 + w.phase;
+        w.mesh.position.x = w.baseX + Math.cos(t) * 3.2;
+        w.mesh.position.z = w.baseZ + Math.sin(t) * 2.4;
+        w.mesh.rotation.y = -t;
+      }
+    }
   }
 }
