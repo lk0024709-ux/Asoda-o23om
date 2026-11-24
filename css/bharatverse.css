@@ -1,0 +1,1152 @@
+/* ============================================================================
+   css/bharatverse.css — BharatVerse: The Living Legend
+   Stylized Indian Heritage UI: Rangoli Motifs, Carved Teak-Wood Menus,
+   Antique Brass Borders, Parchment Journal & Responsive Mobile Dual-Stick HUD
+   ============================================================================ */
+
+:root {
+  --wood-deep: #1f130b;
+  --wood-mid: #331e11;
+  --wood-glass: rgba(31, 19, 11, 0.8);
+  --brass: #e8b84b;
+  --brass-soft: rgba(232, 184, 75, 0.38);
+  --saffron: #f97316;
+  --vermilion: #dc2626;
+  --parchment: #f8efd8;
+  --ink: #2b1a0e;
+  --text-light: #fdf7ea;
+  --text-muted: #d6c5ab;
+  --emerald: #22c55e;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--wood-deep);
+  color: var(--text-light);
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  position: fixed;
+  inset: 0;
+}
+
+#bv-shell {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  touch-action: none;
+}
+
+#bv-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  transition: filter 0.25s ease;
+}
+
+#bv-canvas:active {
+  cursor: grabbing;
+}
+
+/* ============================================================================
+   MINIMALIST RANGOLI-MOTIF HUD
+   ============================================================================ */
+
+#bv-hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  transition: opacity 0.25s ease;
+}
+
+#bv-hud.photo-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hud-card {
+  position: relative;
+  background: linear-gradient(150deg, rgba(42, 24, 13, 0.86), rgba(24, 14, 8, 0.84));
+  border: 1.5px solid var(--brass-soft);
+  border-radius: 14px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 224, 150, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.rangoli-corner {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  top: 4px;
+  left: 4px;
+  border-top: 2px solid var(--brass);
+  border-left: 2px solid var(--brass);
+  border-top-left-radius: 10px;
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.hud-top {
+  position: absolute;
+  top: calc(12px + var(--safe-t));
+  left: calc(14px + var(--safe-l));
+  right: calc(14px + var(--safe-r));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.city-card {
+  padding: 10px 14px;
+  min-width: 240px;
+  max-width: 340px;
+}
+
+.city-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.city-row h1 {
+  margin: 0;
+  font-size: clamp(18px, 2.2vw, 23px);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  color: var(--brass);
+  line-height: 1.1;
+}
+
+.region-badge {
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--saffron);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.city-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: #fde68a;
+  font-weight: 700;
+}
+
+.fest-tag {
+  color: #fdba74;
+}
+
+.meters-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 7px;
+  align-items: center;
+}
+
+.meter-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spice-group {
+  opacity: 0.4;
+  transition: opacity 0.25s ease;
+}
+
+.spice-group.hot {
+  opacity: 1;
+}
+
+.meter-lbl {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.meter-track {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.16s ease;
+}
+
+.meter-fill.stamina {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+
+.meter-fill.spice {
+  background: linear-gradient(90deg, #f59e0b, #ef4444);
+}
+
+/* Top-Right Samman & Toolbar */
+.hud-right-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+}
+
+.samman-pill {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  font-weight: 900;
+  color: var(--brass);
+  font-size: 16px;
+}
+
+.samman-lbl {
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.mode-pill {
+  appearance: none;
+  border: 1px solid var(--brass-soft);
+  background: rgba(249, 115, 22, 0.24);
+  color: #fff;
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 5px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.mode-pill:hover {
+  background: rgba(249, 115, 22, 0.42);
+}
+
+.hud-toolbar {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tool-btn {
+  appearance: none;
+  border: 1.2px solid var(--brass-soft);
+  background: var(--wood-glass);
+  color: var(--text-light);
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.36);
+  transition: transform 0.1s ease, border-color 0.16s ease, background 0.16s ease;
+}
+
+.tool-btn:hover {
+  border-color: var(--brass);
+  background: rgba(68, 39, 20, 0.92);
+}
+
+.tool-btn:active {
+  transform: scale(0.94);
+}
+
+.tool-btn.icon-only {
+  padding: 6px 9px;
+}
+
+/* Slim Story Objective Card */
+.story-tracker {
+  position: absolute;
+  top: calc(156px + var(--safe-t));
+  left: calc(14px + var(--safe-l));
+  max-width: 290px;
+  padding: 9px 12px;
+  border-left: 3.5px solid var(--brass);
+}
+
+.story-act {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #fdba74;
+}
+
+.story-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  margin-top: 2px;
+}
+
+.story-obj {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.35;
+}
+
+/* Race Timer Banner */
+.race-banner {
+  position: fixed;
+  top: calc(16px + var(--safe-t));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(180, 83, 9, 0.92);
+  border: 2px solid #fde047;
+  color: #fff;
+  font-weight: 900;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.race-banner.visible {
+  opacity: 1;
+}
+
+/* Bottom Contextual Interaction Pill */
+.interact-pill {
+  position: fixed;
+  bottom: calc(64px + var(--safe-b));
+  left: 50%;
+  transform: translate(-50%, 10px);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(180, 83, 9, 0.95), rgba(124, 45, 18, 0.95));
+  border: 1.8px solid var(--brass);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.interact-pill.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  pointer-events: auto;
+}
+
+.interact-motif {
+  color: #fde047;
+}
+
+/* Toast / Subtitle Banner */
+.bv-toast {
+  position: fixed;
+  bottom: calc(116px + var(--safe-b));
+  left: 50%;
+  transform: translate(-50%, 10px);
+  max-width: min(92vw, 560px);
+  padding: 10px 18px;
+  border-radius: 12px;
+  background: rgba(24, 14, 8, 0.92);
+  border: 1.5px solid var(--brass);
+  color: var(--parchment);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.38;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.55);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  z-index: 45;
+}
+
+.bv-toast.visible {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+/* Desktop Key Hint Strip */
+.desktop-hints {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 5px 14px;
+  border-radius: 999px;
+  background: rgba(24, 14, 8, 0.65);
+  border: 1px solid rgba(232, 184, 75, 0.22);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.desktop-hints kbd {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(232, 184, 75, 0.2);
+  color: #fde68a;
+  font-weight: 800;
+  font-family: inherit;
+}
+
+/* ============================================================================
+   MOBILE DUAL-STICK TOUCH CONTROLS
+   ============================================================================ */
+
+.mobile-controls {
+  display: none;
+  position: fixed;
+  left: calc(14px + var(--safe-l));
+  right: calc(14px + var(--safe-r));
+  bottom: calc(14px + var(--safe-b));
+  justify-content: space-between;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 25;
+}
+
+.mobile-controls.touch-active {
+  display: flex;
+}
+
+.touch-stick {
+  position: relative;
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  background: rgba(31, 19, 11, 0.55);
+  border: 2px solid var(--brass-soft);
+  pointer-events: auto;
+  touch-action: none;
+  backdrop-filter: blur(6px);
+}
+
+.stick-ring {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  color: rgba(255, 232, 180, 0.45);
+  pointer-events: none;
+}
+
+.stick-knob {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle at 35% 35%, var(--brass), #b45309);
+  border: 2px solid #fef3c7;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+
+.mobile-actions {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  margin-bottom: 6px;
+}
+
+.mob-btn {
+  appearance: none;
+  border: 1.5px solid var(--brass-soft);
+  background: var(--wood-glass);
+  color: #fff;
+  font-weight: 800;
+  font-size: 12px;
+  padding: 11px 13px;
+  border-radius: 14px;
+  touch-action: none;
+}
+
+.mob-btn.primary {
+  background: linear-gradient(135deg, #ea580c, #b45309);
+  border-color: var(--brass);
+}
+
+/* ============================================================================
+   PHOTO MODE VIEWFINDER OVERLAY (F)
+   ============================================================================ */
+
+.photo-overlay {
+  position: fixed;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  pointer-events: none;
+  z-index: 35;
+}
+
+.photo-overlay.open {
+  display: flex;
+}
+
+.photo-grid-lines {
+  position: fixed;
+  inset: 20px;
+  border: 1.5px solid rgba(255, 240, 200, 0.45);
+  background-image:
+    linear-gradient(to right, transparent 33.2%, rgba(255, 240, 200, 0.25) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255, 240, 200, 0.25) 66.6%, transparent 66.8%),
+    linear-gradient(to bottom, transparent 33.2%, rgba(255, 240, 200, 0.25) 33.3%, transparent 33.5%, transparent 66.5%, rgba(255, 240, 200, 0.25) 66.6%, transparent 66.8%);
+  pointer-events: none;
+}
+
+.photo-top-bar,
+.photo-bottom-bar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+  background: linear-gradient(180deg, rgba(20, 12, 7, 0.85), rgba(20, 12, 7, 0.5));
+  pointer-events: auto;
+}
+
+.photo-badge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--brass);
+  letter-spacing: 0.06em;
+}
+
+.photo-target {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fef3c7;
+}
+
+.filter-row,
+.photo-shutter-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-pill {
+  appearance: none;
+  border: 1px solid var(--brass-soft);
+  background: rgba(31, 19, 11, 0.8);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.filter-pill.active {
+  border-color: var(--brass);
+  background: rgba(217, 119, 6, 0.85);
+  color: #fff;
+}
+
+.photo-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.photo-flash.flash {
+  opacity: 0.82;
+}
+
+/* ============================================================================
+   CARVED TEAK-WOOD HERITAGE MODALS (Map, Journal, Dialogue, Hearing, Settings)
+   ============================================================================ */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(12, 7, 4, 0.72);
+  backdrop-filter: blur(6px);
+  z-index: 50;
+}
+
+.modal-backdrop.open {
+  display: flex;
+}
+
+.wood-modal {
+  display: none;
+  flex-direction: column;
+  max-height: 90vh;
+  width: 100%;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 200, 120, 0.025) 0 12px, transparent 12px 26px),
+    linear-gradient(160deg, #331e11 0%, #1d1109 100%);
+  border: 2px solid var(--brass);
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.72), inset 0 0 0 3px rgba(232, 184, 75, 0.12);
+  overflow: hidden;
+  user-select: text;
+}
+
+.wood-modal.open {
+  display: flex;
+}
+
+.wide-modal {
+  max-width: 880px;
+}
+
+.compact-modal {
+  max-width: 580px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--brass-soft);
+  background: rgba(15, 8, 4, 0.42);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: clamp(16px, 2.2vw, 20px);
+  color: var(--brass);
+}
+
+.modal-sub {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.close-btn {
+  appearance: none;
+  border: 1px solid var(--brass-soft);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--parchment);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.close-btn:hover {
+  background: rgba(220, 38, 38, 0.55);
+}
+
+.wood-btn {
+  appearance: none;
+  border: 1.5px solid var(--brass-soft);
+  background: rgba(68, 39, 20, 0.85);
+  color: var(--parchment);
+  font-size: 12.5px;
+  font-weight: 800;
+  padding: 9px 15px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.16s ease, border-color 0.16s ease;
+}
+
+.wood-btn:hover:not(:disabled) {
+  border-color: var(--brass);
+  background: rgba(102, 57, 25, 0.95);
+}
+
+.wood-btn.primary {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  border-color: #fde68a;
+  color: #fff;
+}
+
+.wood-btn.danger {
+  background: rgba(153, 27, 27, 0.72);
+  border-color: rgba(252, 165, 165, 0.5);
+}
+
+.wood-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Pan-India Interactive Map Board */
+.india-map-board {
+  position: relative;
+  height: 350px;
+  margin: 14px 18px 0;
+  border-radius: 14px;
+  border: 1.5px solid var(--brass-soft);
+  background: radial-gradient(circle at 46% 52%, #3a2617 0%, #1d120a 100%);
+  overflow: hidden;
+}
+
+.india-outline,
+.india-map-lines {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.map-pin {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  appearance: none;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  padding: 3px 6px;
+  border-radius: 999px;
+}
+
+.pin-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pin-col, var(--brass));
+  border: 2px solid #fff;
+  box-shadow: 0 0 10px var(--pin-col, var(--brass));
+}
+
+.pin-name {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--parchment);
+  background: rgba(20, 11, 6, 0.85);
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(232, 184, 75, 0.3);
+  white-space: nowrap;
+}
+
+.map-pin.current .pin-dot {
+  transform: scale(1.35);
+  box-shadow: 0 0 16px #fde047;
+}
+
+.map-pin.story-target .pin-name {
+  border-color: #fde047;
+  color: #fde047;
+}
+
+.map-selected-details {
+  padding: 14px 18px 18px;
+}
+
+.map-det-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.map-det-head h3 {
+  margin: 0;
+  font-size: 17px;
+  color: var(--brass);
+}
+
+.det-sub {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.map-det-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--parchment);
+  line-height: 1.45;
+}
+
+/* Bahi-Khata Conservation Journal */
+.modal-scroll-body {
+  padding: 16px 18px 20px;
+  overflow-y: auto;
+}
+
+.journal-stats {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(248, 239, 216, 0.08);
+  border: 1px solid var(--brass-soft);
+  margin-bottom: 14px;
+  font-size: 12.5px;
+}
+
+.journal-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.j-col h4 {
+  margin: 0 0 8px;
+  color: var(--brass);
+  font-size: 13.5px;
+}
+
+.j-list {
+  list-style: none;
+  margin: 0 0 14px;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+
+.j-list li {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(232, 184, 75, 0.16);
+  font-size: 12px;
+}
+
+.j-list li.curr {
+  border-color: var(--brass);
+  background: rgba(217, 119, 6, 0.22);
+}
+
+.j-list li.done {
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #bbf7d0;
+}
+
+.j-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.j-allies {
+  font-size: 12px;
+  color: #fde68a;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.photo-card {
+  padding: 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(232, 184, 75, 0.18);
+  font-size: 11.5px;
+}
+
+.photo-card.captured {
+  background: rgba(248, 239, 216, 0.13);
+  border-color: var(--brass);
+}
+
+.pc-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  font-weight: 800;
+  color: #fef3c7;
+  margin-bottom: 5px;
+}
+
+.pc-city {
+  font-size: 10px;
+  color: var(--brass);
+}
+
+.photo-card p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Dialogue & Public Hearing */
+.dlg-text {
+  padding: 16px 18px;
+  font-size: 14px;
+  line-height: 1.58;
+  color: var(--parchment);
+  white-space: pre-line;
+}
+
+.dlg-choices,
+.hearing-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 0 18px 18px;
+}
+
+.hearing-intro {
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--parchment);
+  margin-top: 0;
+}
+
+.ending-card {
+  padding: 16px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, rgba(217, 119, 6, 0.25), rgba(31, 19, 11, 0.9));
+  border: 2px solid var(--brass);
+  text-align: center;
+}
+
+.ending-tier {
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  color: #fde047;
+}
+
+.ending-card h3 {
+  margin: 6px 0 10px;
+  font-size: 22px;
+  color: #fff;
+}
+
+.ending-card p {
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--parchment);
+  margin-bottom: 16px;
+}
+
+/* Settings */
+.settings-body {
+  padding: 16px 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.setting-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.setting-row select {
+  background: #22140c;
+  color: var(--parchment);
+  border: 1px solid var(--brass-soft);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+
+.settings-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.save-note {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+/* Loading Curtain */
+.bv-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 40%, #3d2211 0%, #140b06 100%);
+  z-index: 90;
+  transition: opacity 0.45s ease, visibility 0.45s ease;
+}
+
+.bv-loading.hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.loading-box {
+  text-align: center;
+  padding: 28px 34px;
+  border-radius: 20px;
+  border: 2px solid var(--brass);
+  background: rgba(24, 14, 8, 0.88);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.65);
+  max-width: 90vw;
+}
+
+.loading-rangoli {
+  font-size: 20px;
+  color: var(--brass);
+  letter-spacing: 0.25em;
+}
+
+.loading-box h2 {
+  margin: 8px 0 2px;
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: 0.16em;
+  color: var(--brass);
+}
+
+.loading-tag {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.28em;
+  color: #fdba74;
+  font-weight: 800;
+}
+
+.loading-desc {
+  margin: 12px 0 16px;
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+
+.loading-track {
+  width: 240px;
+  height: 7px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.loading-bar {
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(90deg, var(--saffron), var(--brass));
+  animation: bvLoad 1.1s infinite ease-in-out;
+}
+
+@keyframes bvLoad {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(220%); }
+}
+
+/* ============================================================================
+   RESPONSIVE BREAKPOINTS (TABLET & ANDROID WEBVIEW MOBILE)
+   ============================================================================ */
+
+@media (max-width: 860px) {
+  .desktop-hints {
+    display: none;
+  }
+
+  .story-tracker {
+    top: auto;
+    bottom: calc(146px + var(--safe-b));
+    max-width: 230px;
+    padding: 7px 10px;
+  }
+
+  .story-obj {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .city-card {
+    min-width: 170px;
+    padding: 7px 10px;
+  }
+
+  .hud-toolbar .tool-btn {
+    padding: 5px 8px;
+    font-size: 10.5px;
+  }
+
+  .india-map-board {
+    height: 250px;
+  }
+}

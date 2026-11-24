@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#26170e" />
+  <title>BharatVerse – The Living Legend | 3D Pan-India Heritage Open World</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="css/bharatverse.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="bv-shell">
+    <!-- Three.js WebGL 3D Viewport -->
+    <canvas id="bv-canvas" aria-label="BharatVerse 3D Indian Heritage World"></canvas>
+
+    <!-- Minimalist Rangoli-Motif HUD -->
+    <div id="bv-hud">
+      <header class="hud-top">
+        <!-- Top-Left: City, Region, Clock, Festival & Stamina/Spice -->
+        <div class="hud-card city-card">
+          <div class="rangoli-corner tl" aria-hidden="true"></div>
+          <div class="city-row">
+            <h1 id="hud-city-name">Ratanpur</h1>
+            <span id="hud-region-badge" class="region-badge">Rajasthan · Act 1</span>
+          </div>
+          <div id="hud-city-sub" class="city-sub">Heritage Crossroads · Tutorial Safehouse</div>
+          <div class="meta-row">
+            <span id="hud-clock">9:30 AM · BAZAAR HOURS</span>
+            <span id="hud-festival" class="fest-tag">✦ Haveli Deepotsav</span>
+          </div>
+
+          <div class="meters-row">
+            <div class="meter-group" title="Stamina (Eat street food or meditate to refill)">
+              <span class="meter-lbl">STAMINA</span>
+              <div class="meter-track"><div id="hud-stamina-fill" class="meter-fill stamina" style="width:100%"></div></div>
+            </div>
+            <div id="hud-spice-wrap" class="meter-group spice-group" title="Teekha Spice Heat">
+              <span class="meter-lbl">🌶 TEEKHA</span>
+              <div class="meter-track"><div id="hud-spice-fill" class="meter-fill spice" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Top-Right: Samman Reputation, Traversal Mode & Toolbar -->
+        <div class="hud-right-stack">
+          <div class="hud-card stats-bar">
+            <div class="samman-pill" title="Community Respect (Samman)">
+              <span class="samman-icon">✦</span>
+              <span id="hud-samman">120</span>
+              <span class="samman-lbl">SAMMAN</span>
+            </div>
+            <button id="btn-hud-ride" class="mode-pill" type="button" title="Switch Transport [V]">
+              <span id="hud-transport">ON FOOT</span> ▾
+            </button>
+          </div>
+
+          <nav class="hud-toolbar" aria-label="Heritage Tools">
+            <button id="btn-hud-map" class="tool-btn" type="button" title="Pan-India Map [M]">🗺 Map</button>
+            <button id="btn-hud-journal" class="tool-btn" type="button" title="Bahi-Khata Journal [J]">📖 Journal</button>
+            <button id="btn-hud-photo" class="tool-btn" type="button" title="Photo Mode [F]">📷 Photo</button>
+            <button id="btn-hud-time" class="tool-btn" type="button" title="Shift Dawn/Noon/Sunset/Night [T]">☀ Time</button>
+            <button id="btn-hud-settings" class="tool-btn icon-only" type="button" title="Settings & Save">⚙</button>
+            <button id="btn-hud-sound" class="tool-btn icon-only" type="button" title="Toggle Indian Raga Audio">🔊</button>
+          </nav>
+        </div>
+      </header>
+
+      <!-- Left Slim Story Objective Tracker ("The Lost Ledger of Mewar") -->
+      <aside class="hud-card story-tracker">
+        <div id="story-act-label" class="story-act">Act 1 · The Inheritance</div>
+        <div id="story-title-label" class="story-title">Restore Grandfather Vikram's Haveli</div>
+        <div id="story-obj-label" class="story-obj">Walk into the courtyard and press [E] to restore it &amp; read the Bahi-Khata.</div>
+      </aside>
+
+      <!-- Jaipur Rickshaw Race Live Timer Banner -->
+      <div id="race-banner" class="race-banner"></div>
+
+      <!-- Bottom-Center Contextual Interaction Pill -->
+      <button id="interact-pill" class="interact-pill" type="button" onclick="window.bharatVerse?.handleInteract()">
+        <span class="interact-motif">❖</span>
+        <span id="interact-text">[E] Interact</span>
+      </button>
+
+      <!-- Toast Notification / Regional Subtitles -->
+      <div id="bv-toast" class="bv-toast" role="status" aria-live="polite"></div>
+
+      <!-- Desktop Key Hint Strip -->
+      <div class="desktop-hints" aria-hidden="true">
+        <span><kbd>WASD</kbd> Move</span>
+        <span><kbd>Drag</kbd> Look</span>
+        <span><kbd>Shift</kbd> Sprint</span>
+        <span><kbd>E</kbd> Interact</span>
+        <span><kbd>V</kbd> Auto / Bullet / Boat</span>
+        <span><kbd>F</kbd> Photo Mode</span>
+        <span><kbd>M</kbd> India Map</span>
+        <span><kbd>T</kbd> Sunset / Night</span>
+      </div>
+
+      <!-- Auto-Detect Mobile Dual-Stick Touch Controls -->
+      <div id="mobile-controls" class="mobile-controls">
+        <div id="touch-left-zone" class="touch-stick left-stick" aria-label="Move Joystick">
+          <div class="stick-ring">MOVE</div>
+          <div id="touch-left-knob" class="stick-knob"></div>
+        </div>
+
+        <div class="mobile-actions">
+          <button id="mob-btn-interact" class="mob-btn primary" type="button">E · ACT</button>
+          <button id="mob-btn-ride" class="mob-btn" type="button">RIDE</button>
+          <button id="mob-btn-photo" class="mob-btn" type="button">📷</button>
+          <button id="mob-btn-map" class="mob-btn" type="button">🗺</button>
+        </div>
+
+        <div id="touch-right-zone" class="touch-stick right-stick" aria-label="Look Joystick">
+          <div class="stick-ring">LOOK</div>
+          <div id="touch-right-knob" class="stick-knob"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Photo Mode Viewfinder Overlay (F) -->
+    <div id="photo-overlay" class="photo-overlay">
+      <div class="photo-grid-lines" aria-hidden="true"></div>
+      <div class="photo-top-bar">
+        <span class="photo-badge">📷 BHARATVERSE PHOTO MODE · Drag to Frame</span>
+        <span id="photo-target-label" class="photo-target">Aim toward any Indian monument</span>
+        <button id="btn-photo-exit" class="wood-btn" type="button">Exit [F]</button>
+      </div>
+      <div class="photo-bottom-bar">
+        <div id="photo-filter-row" class="filter-row"></div>
+        <div class="photo-shutter-row">
+          <button id="btn-photo-snap" class="wood-btn primary" type="button">✦ Capture to Journal</button>
+          <button id="btn-photo-download" class="wood-btn" type="button">⬇ Save PNG Postcard</button>
+        </div>
+      </div>
+      <div id="photo-flash" class="photo-flash"></div>
+    </div>
+
+    <!-- Teak-Wood & Parchment Modal Backdrop -->
+    <div id="modal-backdrop" class="modal-backdrop">
+      <!-- 1. Pan-India Fast-Travel Map Modal -->
+      <section id="modal-map" class="wood-modal wide-modal" aria-label="Pan-India Fast Travel Map">
+        <div class="modal-header">
+          <div>
+            <h2>🗺 BharatVerse Pan-India Highway &amp; Heritage Map</h2>
+            <p class="modal-sub">12 Living Indian City Hubs · Select any pin to inspect monuments &amp; fast-travel</p>
+          </div>
+          <button class="close-btn" data-close-modal type="button">✕</button>
+        </div>
+        <div id="india-map-board" class="india-map-board">
+          <!-- Stylized Parchment India Silhouette Backdrop -->
+          <svg class="india-outline" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M35,10 L47,12 L55,22 L72,34 L84,38 L78,52 L66,62 L54,79 L44,95 L36,84 L28,67 L17,56 L19,44 L29,34 L31,20 Z"
+                  fill="rgba(217, 165, 92, 0.22)" stroke="rgba(245, 197, 66, 0.55)" stroke-width="0.9"/>
+          </svg>
+          <svg id="india-map-lines" class="india-map-lines" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+        </div>
+        <div id="map-selected-details" class="map-selected-details"></div>
+      </section>
+
+      <!-- 2. Bahi-Khata Conservation Journal Modal -->
+      <section id="modal-journal" class="wood-modal wide-modal" aria-label="Bahi-Khata Conservation Journal">
+        <div class="modal-header">
+          <div>
+            <h2>📖 Bahi-Khata — Conservation Journal &amp; Ledger</h2>
+            <p class="modal-sub">Grandfather Professor Vikram's Story Trail, Side Missions, Allies &amp; Heritage Photo Archive</p>
+          </div>
+          <button class="close-btn" data-close-modal type="button">✕</button>
+        </div>
+        <div id="journal-body" class="modal-scroll-body"></div>
+      </section>
+
+      <!-- 3. Regional Hinglish Dialogue Modal -->
+      <section id="modal-dialogue" class="wood-modal compact-modal" aria-label="Dialogue">
+        <div class="modal-header">
+          <div>
+            <h2 id="dlg-speaker">Character</h2>
+            <p id="dlg-role" class="modal-sub">Region</p>
+          </div>
+          <button class="close-btn" data-close-modal type="button">✕</button>
+        </div>
+        <div id="dlg-text" class="dlg-text"></div>
+        <div id="dlg-choices" class="dlg-choices"></div>
+      </section>
+
+      <!-- 4. Act 5 Non-Combat Public Heritage Hearing Modal -->
+      <section id="modal-hearing" class="wood-modal compact-modal" aria-label="Public Heritage Hearing">
+        <div class="modal-header">
+          <div>
+            <h2>⚖️ Act 5 Climax — National Public Heritage Hearing</h2>
+            <p class="modal-sub">Defend Bharat's Living Monuments with Evidence, Community Samman &amp; Unity</p>
+          </div>
+          <button class="close-btn" data-close-modal type="button">✕</button>
+        </div>
+        <div id="hearing-body" class="modal-scroll-body"></div>
+      </section>
+
+      <!-- 5. Settings & IndexedDB Save Modal -->
+      <section id="modal-settings" class="wood-modal compact-modal" aria-label="Settings and Save">
+        <div class="modal-header">
+          <div>
+            <h2>⚙ Settings &amp; IndexedDB Save Profile</h2>
+            <p class="modal-sub">Device-Tier Performance &amp; Android WebView / PWA Controls</p>
+          </div>
+          <button class="close-btn" data-close-modal type="button">✕</button>
+        </div>
+        <div class="settings-body">
+          <label class="setting-row">
+            <span>Graphics Quality Tier</span>
+            <select id="setting-quality">
+              <option value="high">High (Desktop · Bloom + Soft Shadows + FXAA)</option>
+              <option value="medium">Medium (Balanced · 1024 Shadows)</option>
+              <option value="low">Low (Android WebView 30 FPS Optimized)</option>
+            </select>
+          </label>
+          <label class="setting-row">
+            <span>Show Mobile Dual-Stick Controls</span>
+            <input id="setting-touch" type="checkbox" />
+          </label>
+          <div class="settings-actions">
+            <button id="btn-save-now" class="wood-btn primary" type="button">💾 Save Now (IndexedDB)</button>
+            <button id="btn-reset-save" class="wood-btn danger" type="button">↺ Start Fresh Journey</button>
+          </div>
+          <div id="save-status-note" class="save-note">Auto-saves every 25s to IndexedDB (BharatVerseDB).</div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Loading Curtain -->
+    <div id="bv-loading" class="bv-loading">
+      <div class="loading-box">
+        <div class="loading-rangoli">✦ ❖ ✦</div>
+        <h2>BHARATVERSE</h2>
+        <p class="loading-tag">THE LIVING LEGEND</p>
+        <p class="loading-desc">Crafting PBR Sandstone, Custom GLSL Waters &amp; 12 Iconic Indian Cities...</p>
+        <div class="loading-track"><div class="loading-bar"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

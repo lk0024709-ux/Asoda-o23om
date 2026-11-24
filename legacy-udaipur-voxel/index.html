@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#141824" />
+  <title>Udaipur Voxel Open World — Free City</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="game-shell">
+    <!-- Babylon.js 3D Viewport -->
+    <canvas id="renderCanvas" aria-label="Udaipur Voxel 3D World"></canvas>
+
+    <!-- Subtle Center Reticle -->
+    <div id="crosshair" aria-hidden="true"></div>
+
+    <!-- Police Siren Screen Edge Flash -->
+    <div id="wanted-vignette" aria-hidden="true"></div>
+
+    <!-- Top HUD Overlay -->
+    <header id="hud-top">
+      <!-- Top-Left: Radar + Location + Vitals -->
+      <div class="hud-left">
+        <div class="radar-card">
+          <canvas id="minimap" width="112" height="112" aria-label="Udaipur City Radar"></canvas>
+          <span class="radar-north">N</span>
+        </div>
+
+        <div class="status-stack">
+          <div class="brand-row">
+            <span class="brand-tag">UDAIPUR</span>
+            <span id="zone-label" class="zone-pill">GANGAUR GHAT</span>
+          </div>
+
+          <div class="hp-wrap" title="Health">
+            <span class="hp-icon">♥</span>
+            <div class="hp-track">
+              <div id="hp-bar-fill" class="hp-fill" style="width: 100%"></div>
+            </div>
+            <span id="hp-text" class="hp-num">100</span>
+          </div>
+
+          <div class="loadout-row">
+            <span id="weapon-badge" class="pill pill-weapon">VOXEL PISTOL</span>
+            <span id="vehicle-badge" class="pill pill-vehicle">ON FOOT</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-Right: Cash, Wanted Stars, Camera & Bribe -->
+      <div class="hud-right">
+        <div class="economy-card">
+          <div class="cash-display" aria-label="Cash">
+            <span class="rupee-symbol">₹</span>
+            <span id="cash-amount">1,000</span>
+          </div>
+
+          <div id="wanted-stars" class="wanted-stars" aria-label="Wanted Level">
+            <span class="star" data-star="1">★</span>
+            <span class="star" data-star="2">★</span>
+            <span class="star" data-star="3">★</span>
+            <span class="star" data-star="4">★</span>
+            <span class="star" data-star="5">★</span>
+          </div>
+        </div>
+
+        <div class="utility-row">
+          <button id="btn-camera" class="util-btn" type="button" title="Toggle Camera Mode (C)">
+            CAM: <strong id="camera-mode-label">FOLLOW</strong>
+          </button>
+          <button id="btn-bribe" class="util-btn util-bribe" type="button" title="Bribe Police (B)" disabled>
+            BRIBE ₹500
+          </button>
+          <button id="btn-sound" class="util-btn util-icon" type="button" title="Toggle Audio (M)" aria-label="Toggle Sound">
+            🔊
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Toast Notification Banner -->
+    <div id="toast-banner" role="status" aria-live="polite"></div>
+
+    <!-- Bottom Touch & Mouse Controls Overlay -->
+    <footer id="hud-controls">
+      <!-- Left: 4-Way Movement Pad -->
+      <div class="dpad-cluster" aria-label="Movement Controls">
+        <button id="btn-up" class="pad-btn pad-up" type="button" data-dir="up" aria-label="Move Forward">
+          <span>🔼</span>
+        </button>
+        <button id="btn-left" class="pad-btn pad-left" type="button" data-dir="left" aria-label="Move Left">
+          <span>◀️</span>
+        </button>
+        <div class="pad-center" aria-hidden="true"></div>
+        <button id="btn-right" class="pad-btn pad-right" type="button" data-dir="right" aria-label="Move Right">
+          <span>▶️</span>
+        </button>
+        <button id="btn-down" class="pad-btn pad-down" type="button" data-dir="down" aria-label="Move Backward">
+          <span>🔽</span>
+        </button>
+      </div>
+
+      <!-- Center Desktop Key Hints -->
+      <div class="key-hints" aria-hidden="true">
+        <span><kbd>WASD</kbd>/<kbd>Arrows</kbd> Move</span>
+        <span><kbd>Space</kbd> Jump/Horn</span>
+        <span><kbd>F</kbd>/<kbd>Enter</kbd> Car</span>
+        <span><kbd>Q</kbd> Gun</span>
+        <span><kbd>C</kbd> Cam</span>
+        <span><kbd>B</kbd> Bribe</span>
+      </div>
+
+      <!-- Right: Action Console Buttons -->
+      <div class="action-cluster" aria-label="Action Controls">
+        <button id="btn-gun" class="action-btn btn-gun" type="button" data-action="gun">
+          <span class="action-title">GUN</span>
+          <span class="action-sub">Q</span>
+        </button>
+
+        <button id="btn-car" class="action-btn btn-car" type="button" data-action="car">
+          <span class="action-title">CAR</span>
+          <span id="car-btn-sub" class="action-sub">F</span>
+        </button>
+
+        <button id="btn-jump" class="action-btn btn-jump" type="button" data-action="jump">
+          <span class="action-title">JUMP</span>
+          <span class="action-sub">SPACE</span>
+        </button>
+
+        <button id="btn-fire" class="action-btn btn-fire" type="button" data-action="fire">
+          <span class="action-title">FIRE</span>
+          <span class="action-sub">HOLD</span>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Loading / Error Curtain -->
+    <div id="loading-overlay">
+      <div class="loader-card">
+        <div class="loader-crown">✦ UDAIPUR VOXEL CITY ✦</div>
+        <div id="loading-status" class="loader-sub">Building Lake Pichola, City Palace &amp; Havelis...</div>
+        <div class="loader-bar"><div class="loader-progress"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Babylon.js Engine -->
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+
+  <!-- Modular Game Scripts (Strict Load Order) -->
+  <script src="assets/game_assets.js"></script>
+  <script src="world/udaipur_world.js"></script>
+  <script src="models/characters_and_vehicles.js"></script>
+  <script src="engine/game_engine.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
