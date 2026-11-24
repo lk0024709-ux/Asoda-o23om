@@ -1,0 +1,12 @@
+{
+  "name": "BharatVerse – The Living Legend",
+  "short_name": "BharatVerse",
+  "description": "3D Open-World Indian Heritage Adventure spanning 12 iconic Indian city hubs in Three.js.",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#1a110b",
+  "theme_color": "#d97706",
+  "categories": ["games", "adventure", "education"],
+  "icons": []
+}
