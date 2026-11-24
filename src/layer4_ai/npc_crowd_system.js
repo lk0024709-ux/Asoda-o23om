@@ -25,48 +25,69 @@ export const FESTIVALS = [
   { id: "mysore_lights", label: "Mysore Palace 100,000 Bulb Glow", accent: 0xfde047 }
 ];
 
+const SARI_PALETTE = [
+  0xe11d48, 0xd97706, 0x059669, 0x2563eb, 0x7c3aed,
+  0xca8a04, 0xdb2777, 0x0f766e, 0xf8fafc, 0xb45309
+];
+
 export class NPCCrowdSystem {
-  constructor(scene, assets) {
+  constructor(scene, assets, worldStreamer) {
     this.scene = scene;
     this.assets = assets;
+    this.world = worldStreamer;
 
-    // 24 real minutes = 24 in-game hours => 1 game hour per real minute
-    this.timeHours = 10.5;
+    // 24 real minutes = 24 in-game hours => 1 game hour per 60 real seconds
+    this.hourOfDay = 9.5; // Starts in crisp Golden Morning (9:30 AM)
     this.timeScale = 1.0;
     this.activeFestival = "normal";
 
-    this.root = new THREE.Group();
-    this.scene.add(this.root);
-
-    this.namedNpcs = [];
+    this.group = null;
+    this.namedNPCs = [];
     this.crowdInst = null;
     this.crowdHeadInst = null;
     this.crowdData = [];
     this.wildlife = [];
     this.currentHub = null;
+    this._dummyBody = new THREE.Object3D();
+    this._dummyHead = new THREE.Object3D();
   }
 
+  // Alias for compatibility
+  get timeHours() { return this.hourOfDay; }
+  set timeHours(v) { this.hourOfDay = v; }
+
   getRoutinePhase() {
-    const h = this.timeHours;
-    if (h >= 5.5 && h < 8.5) return { id: "dawn", label: "Morning Mandir Aarti & Chai Rush" };
-    if (h >= 8.5 && h < 16.5) return { id: "day", label: "Bustling Bazaars & Heritage Walkers" };
-    if (h >= 16.5 && h < 19.8) return { id: "dusk", label: "Golden Sunset, Street Chaat & Ghat Aarti" };
-    return { id: "night", label: "Starlit Haveli Lamps & Night Illumination" };
+    const h = this.hourOfDay;
+    if (h >= 5 && h < 9) return "MORNING AARTI";
+    if (h >= 9 && h < 17) return "BAZAAR HOURS";
+    if (h >= 17 && h < 20.5) return "GOLDEN FESTIVAL";
+    return "NIGHT ILLUMINATION";
   }
 
   formatClock() {
-    const totalMins = Math.floor(this.timeHours * 60);
+    const totalMins = Math.floor(this.hourOfDay * 60);
     const h24 = Math.floor(totalMins / 60) % 24;
     const m = totalMins % 60;
     const suffix = h24 >= 12 ? "PM" : "AM";
     const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
-    return `${String(h12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${suffix}`;
+    return `${h12}:${String(m).padStart(2, "0")} ${suffix}`;
+  }
+
+  cycleTimePreset() {
+    const presets = [6.5, 13.0, 17.8, 20.8]; // Dawn, Noon, Golden Hour Sunset, Festival Night
+    let next = presets[0];
+    for (const p of presets) {
+      if (this.hourOfDay < p - 0.3) {
+        next = p;
+        break;
+      }
+    }
+    this.hourOfDay = next;
+    return this.formatClock();
   }
 
   cycleTimeOfDay() {
-    const stops = [6.2, 11.0, 17.6, 21.0];
-    const next = stops.find((s) => s > this.timeHours + 0.5) ?? stops[0];
-    this.timeHours = next;
+    this.cycleTimePreset();
     return this.getRoutinePhase();
   }
 
@@ -77,25 +98,31 @@ export class NPCCrowdSystem {
     return next;
   }
 
-  clearHub() {
-    while (this.root.children.length > 0) {
-      this.root.remove(this.root.children[0]);
-    }
-    this.namedNpcs = [];
+  clear() {
+    if (!this.group) return;
+    this.scene.remove(this.group);
+    this.group.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+    });
+    this.group = null;
+    this.namedNPCs = [];
     this.crowdInst = null;
     this.crowdHeadInst = null;
     this.crowdData = [];
     this.wildlife = [];
   }
 
-  populateHub(hub, crowdBudget = 55) {
-    this.clearHub();
+  populateHub(hub, crowdBudget = 32) {
+    this.clear();
     this.currentHub = hub;
+    this.group = new THREE.Group();
+    this.group.name = "npc_crowd_" + hub.id;
+    this.scene.add(this.group);
 
-    for (const def of hub.npcs) {
+    for (const def of (hub.npcs || [])) {
       const npc = this._buildNamedNPC(def);
-      this.root.add(npc.mesh);
-      this.namedNpcs.push(npc);
+      this.group.add(npc.mesh);
+      this.namedNPCs.push(npc);
     }
 
     this._buildInstancedCrowd(hub, crowdBudget);
@@ -111,7 +138,7 @@ export class NPCCrowdSystem {
     const skinMat = this.assets.colorMat(0xc5854b, { roughness: 0.66 });
     const wrapMat = this.assets.colorMat(0xfef3c7, { roughness: 0.82 });
     const legMat = this.assets.colorMat(0x2d241e, { roughness: 0.84 });
-    const isFemale = /Meera|Ananya|Lakshmi|Bahu|Devi/i.test(def.name);
+    const isFemale = /Meera|Ananya|Lakshmi|Bahu|Devi/i.test(def.name || "");
 
     // Legs or Flowing Pleated Saree Skirt
     if (isFemale) {
@@ -174,12 +201,13 @@ export class NPCCrowdSystem {
       pagdiCrown.position.y = 2.12;
       g.add(pagdiBase, pagdiCrown);
     } else {
+      const hairMat = this.assets.colorMat(0x18181b, { roughness: 0.72 });
       const hair = new THREE.Mesh(
         new THREE.SphereGeometry(0.205, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.62),
-        this.assets.colorMat(0x18181b, { roughness: 0.72 })
+        hairMat
       );
       hair.position.set(0, 1.98, -0.02);
-      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), this.assets.colorMat(0x18181b, { roughness: 0.72 }));
+      const bun = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 12), hairMat);
       bun.position.set(0, 1.9, -0.22);
       const gajra = new THREE.Mesh(new THREE.TorusGeometry(0.11, 0.025, 8, 14), this.assets.get("marigold"));
       gajra.position.set(0, 1.9, -0.2);
@@ -197,7 +225,7 @@ export class NPCCrowdSystem {
 
     g.position.set(def.x, 0, def.z);
     return {
-      ...def,
+      data: def,
       mesh: g,
       ring,
       baseX: def.x,
@@ -219,41 +247,31 @@ export class NPCCrowdSystem {
     this.crowdHeadInst = new THREE.InstancedMesh(headGeo, headMat, count);
     this.crowdInst.castShadow = true;
 
-    const sariPalette = [
-      0xe11d48, 0xd97706, 0x059669, 0x2563eb, 0x7c3aed,
-      0xca8a04, 0xdb2777, 0x0f766e, 0xf8fafc, 0xb45309
-    ];
-
     const col = new THREE.Color();
     for (let i = 0; i < count; i++) {
       const a = (i / count) * Math.PI * 2 + (i % 5) * 0.2;
       const rad = 12 + ((i * 11) % 34);
       let x = Math.cos(a) * rad;
       let z = Math.sin(a) * rad;
-      if (hub.waterArea) {
-        const wa = hub.waterArea;
-        if (Math.abs(x - wa.x) < wa.w * 0.55 && Math.abs(z - wa.z) < wa.d * 0.55) {
-          x = -Math.abs(x) - 10;
-        }
+      if (this.world?.isPointInWater(x, z)) {
+        x = hub.spawn.x + (Math.random() - 0.5) * 14;
+        z = hub.spawn.z + (Math.random() - 0.5) * 14;
       }
 
-      col.setHex(sariPalette[i % sariPalette.length]);
+      col.setHex(SARI_PALETTE[i % SARI_PALETTE.length]);
       this.crowdInst.setColorAt(i, col);
 
       this.crowdData.push({
         x,
         z,
-        homeX: x,
-        homeZ: z,
         dir: Math.random() * Math.PI * 2,
         speed: 1.0 + (i % 4) * 0.35,
-        phase: Math.random() * Math.PI * 2,
-        isBazaar: i % 2 === 0
+        phase: Math.random() * Math.PI * 2
       });
     }
 
     if (this.crowdInst.instanceColor) this.crowdInst.instanceColor.needsUpdate = true;
-    this.root.add(this.crowdInst, this.crowdHeadInst);
+    this.group.add(this.crowdInst, this.crowdHeadInst);
   }
 
   // --------------------------------------------------------------------------
@@ -304,10 +322,14 @@ export class NPCCrowdSystem {
         cow.add(leg);
       }
 
-      const cx = -22 + i * 15;
-      const cz = 14 + (i % 2) * 14;
+      let cx = -22 + i * 15;
+      let cz = 14 + (i % 2) * 14;
+      if (this.world?.isPointInWater(cx, cz)) {
+        cx = hub.spawn.x + (i - 1.5) * 6;
+        cz = hub.spawn.z + 6;
+      }
       cow.position.set(cx, 0, cz);
-      this.root.add(cow);
+      this.group.add(cow);
       this.wildlife.push({ mesh: cow, kind: "cow", baseX: cx, baseZ: cz, phase: i * 1.4 });
     }
 
@@ -324,10 +346,14 @@ export class NPCCrowdSystem {
         monkeyMat
       );
       m.add(body, head, tail);
-      const mx = (i - monkeyCount / 2) * 11;
-      const mz = -16 + (i % 2) * 8;
+      let mx = (i - monkeyCount / 2) * 11;
+      let mz = -16 + (i % 2) * 8;
+      if (this.world?.isPointInWater(mx, mz)) {
+        mx = hub.spawn.x - 8 + i * 4;
+        mz = hub.spawn.z - 6;
+      }
       m.position.set(mx, 0, mz);
-      this.root.add(m);
+      this.group.add(m);
       this.wildlife.push({ mesh: m, kind: "monkey", baseX: mx, baseZ: mz, phase: i * 2.1 });
     }
 
@@ -352,18 +378,22 @@ export class NPCCrowdSystem {
         leg.position.set(lx, 0.22, lz);
         dog.add(leg);
       }
-      const dx = 12 - i * 12;
-      const dz = 22 + i * 3;
+      let dx = 12 - i * 12;
+      let dz = 22 + i * 3;
+      if (this.world?.isPointInWater(dx, dz)) {
+        dx = hub.spawn.x + (i - 1) * 5;
+        dz = hub.spawn.z + 4;
+      }
       dog.position.set(dx, 0, dz);
-      this.root.add(dog);
+      this.group.add(dog);
       this.wildlife.push({ mesh: dog, kind: "dog", baseX: dx, baseZ: dz, phase: i * 1.9 });
     }
   }
 
-  getNearestNPC(px, pz, maxDist = 4.6) {
+  findNearestNPC(px, pz, maxDist = 5.5) {
     let best = null;
     let bestD = maxDist;
-    for (const n of this.namedNpcs) {
+    for (const n of this.namedNPCs) {
       const d = Math.hypot(px - n.mesh.position.x, pz - n.mesh.position.z);
       if (d < bestD) {
         bestD = d;
@@ -373,27 +403,32 @@ export class NPCCrowdSystem {
     return best;
   }
 
-  update(dt, elapsedSec, playerPos, worldStreamer) {
-    this.timeHours = (this.timeHours + (dt / 60) * this.timeScale) % 24;
+  getNearestNPC(px, pz, maxDist = 5.5) {
+    return this.findNearestNPC(px, pz, maxDist);
+  }
 
-    const isNight = this.timeHours < 5.6 || this.timeHours > 20.0;
-    const isDawn = this.timeHours >= 5.5 && this.timeHours < 8.5;
+  update(dt, elapsedSec, playerPos, worldOverride = null) {
+    const world = worldOverride || this.world;
+    this.hourOfDay = (this.hourOfDay + (dt / 60) * this.timeScale) % 24;
 
-    for (const n of this.namedNpcs) {
+    const isNight = this.hourOfDay < 5.6 || this.hourOfDay > 20.0;
+    const isDawn = this.hourOfDay >= 5.5 && this.hourOfDay < 8.5;
+
+    for (const n of this.namedNPCs) {
       n.ring.rotation.z = elapsedSec * 1.8 + n.phase;
       n.ring.position.y = 2.58 + Math.sin(elapsedSec * 2.6 + n.phase) * 0.08;
-      const dx = playerPos.x - n.mesh.position.x;
-      const dz = playerPos.z - n.mesh.position.z;
-      if (Math.hypot(dx, dz) < 7.5) {
-        n.mesh.rotation.y = Math.atan2(dx, dz);
-      } else {
-        n.mesh.rotation.y = Math.sin(elapsedSec * 0.4 + n.phase) * 0.35;
+      if (playerPos) {
+        const dx = playerPos.x - n.mesh.position.x;
+        const dz = playerPos.z - n.mesh.position.z;
+        if (Math.hypot(dx, dz) < 7.5) {
+          n.mesh.rotation.y = Math.atan2(dx, dz);
+        } else {
+          n.mesh.rotation.y = Math.sin(elapsedSec * 0.4 + n.phase) * 0.35;
+        }
       }
     }
 
     if (this.crowdInst && this.crowdHeadInst) {
-      const dummyBody = new THREE.Object3D();
-      const dummyHead = new THREE.Object3D();
       const speedMult = isNight ? 0.35 : isDawn ? 0.72 : 1.0;
 
       for (let i = 0; i < this.crowdData.length; i++) {
@@ -403,8 +438,7 @@ export class NPCCrowdSystem {
         const outOfBounds = Math.hypot(nx, nz) > 54;
         const blocked =
           outOfBounds ||
-          worldStreamer.isPointInWater(nx, nz) ||
-          worldStreamer.hitsBuilding(nx, nz, 1.0);
+          (world && (world.isPointInWater(nx, nz) || world.hitsBuilding(nx, nz, 1.0)));
 
         if (blocked) {
           c.dir += Math.PI * 0.65 + (i % 3) * 0.3;
@@ -414,15 +448,15 @@ export class NPCCrowdSystem {
         }
 
         const bob = Math.abs(Math.sin(elapsedSec * 4.5 + c.phase)) * 0.08 * speedMult;
-        dummyBody.position.set(c.x, 0.25 + bob, c.z);
-        dummyBody.rotation.set(0, -c.dir + Math.PI / 2, 0);
-        dummyBody.updateMatrix();
-        this.crowdInst.setMatrixAt(i, dummyBody.matrix);
+        this._dummyBody.position.set(c.x, 0.25 + bob, c.z);
+        this._dummyBody.rotation.set(0, -c.dir + Math.PI / 2, 0);
+        this._dummyBody.updateMatrix();
+        this.crowdInst.setMatrixAt(i, this._dummyBody.matrix);
 
-        dummyHead.position.set(c.x, 1.82 + bob, c.z);
-        dummyHead.rotation.set(0, -c.dir + Math.PI / 2, 0);
-        dummyHead.updateMatrix();
-        this.crowdHeadInst.setMatrixAt(i, dummyHead.matrix);
+        this._dummyHead.position.set(c.x, 1.82 + bob, c.z);
+        this._dummyHead.rotation.set(0, -c.dir + Math.PI / 2, 0);
+        this._dummyHead.updateMatrix();
+        this.crowdHeadInst.setMatrixAt(i, this._dummyHead.matrix);
       }
       this.crowdInst.instanceMatrix.needsUpdate = true;
       this.crowdHeadInst.instanceMatrix.needsUpdate = true;

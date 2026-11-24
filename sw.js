@@ -1,5 +1,5 @@
 /* BharatVerse Offline Cache Service Worker (PWA / Android WebView ready) */
-const CACHE_NAME = "bharatverse-v2";
+const CACHE_NAME = "bharatverse-v3";
 const CORE_ASSETS = [
   "./",
   "./index.html",
