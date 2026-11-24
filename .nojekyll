@@ -1,0 +1,3 @@
+# GitHub Pages: serve files as-is (no Jekyll processing).
+# Keeps sw.js, manifest.json and dotfiles working, and prevents Jekyll
+# from ignoring any paths in the static game site.

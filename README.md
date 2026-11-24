@@ -1,5 +1,7 @@
 # BharatVerse – The Living Legend
 
+> 🎮 **Play now:** https://lk0024709-ux.github.io/Asoda-o23om/ — no install needed, works in any modern browser (desktop + mobile). Deployed automatically to GitHub Pages on every merge to `main` via `.github/workflows/pages.yml`.
+
 A 3D Open-World Indian Heritage Adventure & Exploration game built in **Three.js** (WebGL + PWA / Android WebView ready) using a clean **7-Layer Modular Architecture**, spanning **12 realized Indian city hubs** connected by drivable highways and fast travel.
 
 ## 7-Layer Modular Architecture
